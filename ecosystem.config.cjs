@@ -5,7 +5,7 @@
 module.exports = {
   apps: [
     {
-      name: "ui-ux-template-server",
+      name: "aether-quickstart-server",
       cwd: "./apps/server",
       script: "bun",
       args: "run dist/index.mjs",

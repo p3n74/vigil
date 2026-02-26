@@ -1,13 +1,13 @@
 {
   "expo": {
-    "scheme": "ui-ux-template",
+    "scheme": "aether-quickstart",
     "userInterfaceStyle": "automatic",
     "orientation": "default",
     "web": {
       "bundler": "metro"
     },
-    "name": "ui-ux-template",
-    "slug": "ui-ux-template",
+    "name": "aether-quickstart",
+    "slug": "aether-quickstart",
     "plugins": ["expo-font"],
     "experiments": {
       "typedRoutes": true,

@@ -1,5 +1,5 @@
 {
-  "name": "ui-ux-template",
+  "name": "aether-quickstart",
   "private": true,
   "workspaces": {
     "packages": [

@@ -38,7 +38,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "UI/UX Template",
+        title: "Aether Quickstart",
       },
       {
         name: "description",

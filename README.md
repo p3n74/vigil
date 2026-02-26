@@ -1,6 +1,6 @@
-# UI/UX Template
+# Aether Quickstart
 
-A modern, production-ready fullstack monorepo template. This project is designed to be a starting point for building scalable applications with a focus on great developer experience and clean UI/UX.
+A high-performance, full-stack monorepo powerhouse. Seamlessly bridging React Web, Expo Native, and tRPC Server with end-to-end type safety and production-ready architecture. This project is designed to be a starting point for building scalable applications with a focus on great developer experience and clean UI/UX.
 
 ## 🚀 Tech Stack
 
