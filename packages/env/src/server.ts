@@ -17,7 +17,7 @@ export const env = createEnv({
     PORT: z.coerce.number().optional().default(3000),
     HOST: z.string().optional().default("0.0.0.0"), // Bind address (0.0.0.0 for Cloud Run, localhost for local dev)
     // 32-byte key for AES-256-GCM (use base64 or any string; server hashes to 32 bytes). Set in production.
-    CHAT_ENCRYPTION_KEY: z.string().min(16).optional().default("cisco-finance-chat-dev-key-change-in-production"),
+    CHAT_ENCRYPTION_KEY: z.string().min(16).optional().default("template-chat-dev-key"),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

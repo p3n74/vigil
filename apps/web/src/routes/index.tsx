@@ -9,6 +9,7 @@ import {
   Github,
   CheckCircle2,
   Users,
+  Loader2,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -22,18 +23,27 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPage() {
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, isPending, error: authError } = authClient.useSession();
   const roleQuery = useQuery({
     ...trpc.team.getMyRole.queryOptions(),
     enabled: !!session,
+    retry: false,
   });
   
   const isWhitelisted = (roleQuery.data?.role ?? null) !== null;
 
+  // If there's an error connecting to the auth service, assume signed out for the landing page
+  if (authError) {
+    return <SignedOutHome />;
+  }
+
   if (isPending) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground flex items-center gap-2">
+          <Loader2 className="animate-spin size-4" />
+          Loading...
+        </div>
       </div>
     );
   }
@@ -41,6 +51,11 @@ function LandingPage() {
   // Signed in but not whitelisted: show forbidden
   if (session && roleQuery.isSuccess && !isWhitelisted) {
     return <NotWhitelistedView />;
+  }
+
+  // Handle case where session exists but role query failed
+  if (session && roleQuery.isError) {
+    return <SignedInHome error={roleQuery.error?.message} />;
   }
 
   // Show home view if signed in
@@ -51,7 +66,7 @@ function LandingPage() {
   return <SignedOutHome />;
 }
 
-function SignedInHome() {
+function SignedInHome({ error }: { error?: string }) {
   const { data: session } = authClient.useSession();
   const roleQuery = useQuery(trpc.team.getMyRole.queryOptions());
 
@@ -62,10 +77,16 @@ function SignedInHome() {
         <h1 className="text-4xl font-bold tracking-tight mb-2">
           Welcome back, {session?.user.name?.split(" ")[0] ?? "User"}
         </h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          You are currently signed in as <span className="text-foreground font-medium">{session?.user.email}</span> 
-          with the role <span className="text-primary font-semibold">{roleQuery.data?.role ?? "None"}</span>.
-        </p>
+        {error ? (
+          <p className="text-destructive max-w-2xl mx-auto">
+            Failed to load permissions: {error}. Please ensure the server is running.
+          </p>
+        ) : (
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            You are currently signed in as <span className="text-foreground font-medium">{session?.user.email}</span> 
+            with the role <span className="text-primary font-semibold">{roleQuery.data?.role ?? "None"}</span>.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 max-w-2xl mx-auto">
