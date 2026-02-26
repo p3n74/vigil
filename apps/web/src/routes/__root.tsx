@@ -38,17 +38,17 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "TRACE",
+        title: "UI/UX Template",
       },
       {
         name: "description",
-        content: "Modern finance management for your organization",
+        content: "A modern, production-ready fullstack monorepo template.",
       },
     ],
     links: [
       {
         rel: "icon",
-        href: "/cisco-face-primary.ico",
+        href: "/favicon.ico",
       },
     ],
   }),
