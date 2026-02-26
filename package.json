@@ -1,0 +1,57 @@
+{
+  "name": "ui-ux-template",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "dotenv": "^17.2.2",
+      "zod": "^4.1.13",
+      "typescript": "^5",
+      "@types/bun": "^1.3.4",
+      "@trpc/server": "^11.7.2",
+      "better-auth": "^1.4.9",
+      "@types/express": "^5.0.1",
+      "@prisma/client": "^7.2.0",
+      "@trpc/tanstack-react-query": "^11.7.2",
+      "@trpc/client": "^11.7.2",
+      "@tanstack/react-query": "^5.90.12",
+      "@better-auth/expo": "^1.4.9"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "turbo dev",
+    "start": "turbo run start --filter=server --filter=web",
+    "build": "turbo build",
+    "check-types": "turbo check-types",
+    "dev:native": "turbo -F native dev",
+    "dev:web": "turbo -F web dev",
+    "dev:server": "turbo -F server dev",
+    "db:push": "turbo -F @template/db db:push",
+    "db:studio": "turbo -F @template/db db:studio",
+    "db:generate": "turbo -F @template/db db:generate",
+    "db:migrate": "turbo -F @template/db db:migrate",
+    "check": "biome check --write .",
+    "start:prod": "pm2 start ecosystem.config.cjs --env production",
+    "pm2:save": "pm2 save",
+    "stop:prod": "pm2 stop ui-ux-template-server",
+    "restart:prod": "pm2 restart ui-ux-template-server --env production"
+  },
+  "dependencies": {
+    "@template/env": "workspace:*",
+    "@prisma/client-runtime-utils": "^7.3.0",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "@template/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "turbo": "^2.6.3",
+    "typescript": "catalog:"
+  },
+  "packageManager": "bun@1.3.2"
+}

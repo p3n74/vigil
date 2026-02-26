@@ -1,0 +1,111 @@
+model User {
+  id              String           @id
+  name            String
+  email           String
+  emailVerified   Boolean          @default(false)
+  image           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  sessions        Session[]
+  accounts        Account[]
+  activityLogs    ActivityLog[]
+  sentChatMessages     ChatMessage[]    @relation("ChatMessageSender")
+  receivedChatMessages ChatMessage[]    @relation("ChatMessageReceiver")
+
+  @@unique([email])
+  @@map("user")
+}
+
+model AuthorizedUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      String   // Generic role (e.g., ADMIN, USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("authorized_user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String   // e.g., "created", "updated", "deleted"
+  entityType  String   
+  entityId    String?
+  description String   
+  metadata    String?  @db.Text 
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([entityType])
+  @@map("activity_log")
+}
+
+// Keeping ChatMessage as it can be a UI component
+model ChatMessage {
+  id               String    @id @default(cuid())
+  senderId         String
+  sender           User      @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId       String
+  receiver         User      @relation("ChatMessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  contentEncrypted String    @db.Text 
+  iv               String    @db.VarChar(24) 
+  createdAt        DateTime  @default(now())
+  readAt           DateTime? 
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, senderId])
+  @@index([createdAt])
+  @@index([receiverId, readAt])
+  @@map("chat_message")
+}

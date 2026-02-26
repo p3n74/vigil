@@ -1,0 +1,102 @@
+import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+
+import { auth } from "@template/auth";
+import { prisma } from "@template/db";
+import { fromNodeHeaders } from "better-auth/node";
+
+// Use the shared prisma client from @template/db
+console.log("[context] prisma client created:", !!prisma);
+
+/**
+ * WebSocket event types for real-time updates
+ */
+export const WS_EVENTS = {
+  CASHFLOW_UPDATED: "cashflow:updated",
+  ACCOUNT_ENTRY_UPDATED: "account_entry:updated",
+  RECEIPT_UPDATED: "receipt:updated",
+  ACTIVITY_LOGGED: "activity:logged",
+  STATS_UPDATED: "stats:updated",
+  BUDGET_UPDATED: "budget:updated",
+  CHAT_MESSAGE_NEW: "chat:message",
+  CHAT_PING: "chat:ping",
+} as const;
+
+export type WsEventType = (typeof WS_EVENTS)[keyof typeof WS_EVENTS];
+
+export interface WsEventPayload {
+  event: WsEventType;
+  entityId?: string;
+  action: "created" | "updated" | "archived" | "bound" | "unbound" | "deleted" | "linked" | "completed";
+  /** Optional message for toast notifications (e.g. "New message from John") */
+  message?: string;
+  /** Optional preview for chat toasts (e.g. first 80 chars of message) */
+  preview?: string;
+}
+
+export type PresenceStatus = "online" | "away" | "offline";
+
+/**
+ * WebSocket emitter functions that can be injected into context
+ */
+export interface WsEmitter {
+  emitToUser: (userId: string, payload: WsEventPayload) => void;
+  emitToAll: (payload: WsEventPayload) => void;
+}
+
+export type GetPresenceMap = () => Record<string, PresenceStatus>;
+
+// Store for the WebSocket emitter and presence getter (set by server)
+let wsEmitter: WsEmitter | null = null;
+let presenceGetter: GetPresenceMap | null = null;
+
+export function setWsEmitter(emitter: WsEmitter) {
+  wsEmitter = emitter;
+}
+
+export function getWsEmitter(): WsEmitter | null {
+  return wsEmitter;
+}
+
+export function setPresenceGetter(getter: GetPresenceMap) {
+  presenceGetter = getter;
+}
+
+export function getPresenceGetter(): GetPresenceMap | null {
+  return presenceGetter;
+}
+
+/** Client IP for rate limiting (e.g. public receipt submission). Uses X-Forwarded-For when behind a proxy. */
+function getClientIp(req: CreateExpressContextOptions["req"]): string | null {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) {
+    const first = typeof forwarded === "string" ? forwarded.split(",")[0] : forwarded[0];
+    return first?.trim() ?? null;
+  }
+  return req.socket?.remoteAddress ?? null;
+}
+
+export async function createContext(opts: CreateExpressContextOptions) {
+  const session = await auth.api.getSession({
+    headers: fromNodeHeaders(opts.req.headers),
+  });
+  console.log("[context] createContext called, prisma:", !!prisma);
+
+  let userRole: string | null = null;
+  if (session?.user?.email) {
+    const authorizedUser = await prisma.authorizedUser.findUnique({
+      where: { email: session.user.email },
+    });
+    userRole = authorizedUser?.role ?? null;
+  }
+
+  return {
+    session,
+    userRole,
+    prisma,
+    ws: wsEmitter,
+    getPresenceMap: presenceGetter ?? (() => ({})),
+    clientIp: getClientIp(opts.req),
+  };
+}
+
+export type Context = Awaited<ReturnType<typeof createContext>>;
