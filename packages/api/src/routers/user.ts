@@ -147,6 +147,53 @@ export const userRouter = router({
       return updated;
     }),
 
+  search: whitelistedProcedure
+    .input(
+      z.object({
+        query: z.string().min(1).max(100),
+        limit: z.number().min(1).max(20).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 10;
+      const term = input.query.trim();
+      if (!term) return [];
+
+      const users = await ctx.prisma.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: term, mode: "insensitive" } },
+            { displayName: { contains: term, mode: "insensitive" } },
+          ],
+        },
+        take: limit,
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          image: true,
+          googleImage: true,
+          customImage: true,
+          avatarSource: true,
+        },
+      });
+
+      return users.map((u) => {
+        const avatarSource = (u.avatarSource ?? "GOOGLE") as "GOOGLE" | "CUSTOM";
+        const avatarUrl =
+          avatarSource === "CUSTOM"
+            ? u.customImage || u.image || null
+            : u.googleImage || u.image || null;
+        return {
+          id: u.id,
+          name: u.name,
+          displayName: u.displayName,
+          avatarUrl,
+        };
+      });
+    }),
+
   getById: whitelistedProcedure
     .input(
       z.object({

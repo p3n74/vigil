@@ -18,6 +18,7 @@ import {
 
 import { ModeToggle } from "./mode-toggle";
 import { Button } from "./ui/button";
+import { UserSearchBar } from "./user-search";
 import { WebSocketStatus } from "./websocket-provider";
 
 export default function Header() {
@@ -95,6 +96,12 @@ export default function Header() {
                     </Link>
                   ))}
             </div>
+
+            {session && (
+              <div className="hidden w-56 md:block lg:w-64">
+                <UserSearchBar />
+              </div>
+            )}
           </div>
 
           {/* Right side: actions + hamburger on mobile */}
@@ -154,6 +161,11 @@ export default function Header() {
               <X className="size-5" />
             </Button>
           </DialogHeader>
+          {session && (
+            <div className="px-2 pt-3">
+              <UserSearchBar onNavigate={closeMobileMenu} />
+            </div>
+          )}
           <nav className="flex flex-col gap-1 py-4">
             {publicLinks.map(({ to, label }) => (
               <Link
