@@ -8,6 +8,7 @@ import { chatRouter } from "./chat";
 import { presenceRouter } from "./presence";
 import { postsRouter } from "./posts";
 import { userRouter } from "./user";
+import { locationRouter } from "./location";
 
 // Helper function to create activity logs and emit WebSocket event
 async function logActivity(
@@ -51,6 +52,7 @@ export const appRouter = router({
   chat: chatRouter,
   presence: presenceRouter,
   posts: postsRouter,
+  location: locationRouter,
 
   privateData: protectedProcedure.query(({ ctx }) => {
     return {

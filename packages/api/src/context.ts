@@ -19,6 +19,7 @@ export const WS_EVENTS = {
   BUDGET_UPDATED: "budget:updated",
   CHAT_MESSAGE_NEW: "chat:message",
   CHAT_PING: "chat:ping",
+  LOCATION_UPDATE: "location:update",
 } as const;
 
 export type WsEventType = (typeof WS_EVENTS)[keyof typeof WS_EVENTS];
@@ -45,9 +46,18 @@ export interface WsEmitter {
 
 export type GetPresenceMap = () => Record<string, PresenceStatus>;
 
-// Store for the WebSocket emitter and presence getter (set by server)
+export interface LocationEntry {
+  latitude: number;
+  longitude: number;
+  updatedAt: number;
+}
+
+export type GetLocationMap = () => Record<string, LocationEntry>;
+
+// Store for the WebSocket emitter, presence getter, and location getter (set by server)
 let wsEmitter: WsEmitter | null = null;
 let presenceGetter: GetPresenceMap | null = null;
+let locationGetter: GetLocationMap | null = null;
 
 export function setWsEmitter(emitter: WsEmitter) {
   wsEmitter = emitter;
@@ -63,6 +73,14 @@ export function setPresenceGetter(getter: GetPresenceMap) {
 
 export function getPresenceGetter(): GetPresenceMap | null {
   return presenceGetter;
+}
+
+export function setLocationGetter(getter: GetLocationMap) {
+  locationGetter = getter;
+}
+
+export function getLocationGetter(): GetLocationMap | null {
+  return locationGetter;
 }
 
 /** Client IP for rate limiting (e.g. public receipt submission). Uses X-Forwarded-For when behind a proxy. */
@@ -95,6 +113,7 @@ export async function createContext(opts: CreateExpressContextOptions) {
     prisma,
     ws: wsEmitter,
     getPresenceMap: presenceGetter ?? (() => ({})),
+    getLocationMap: locationGetter ?? (() => ({})),
     clientIp: getClientIp(opts.req),
   };
 }

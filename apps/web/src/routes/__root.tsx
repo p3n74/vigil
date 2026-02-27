@@ -57,6 +57,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 function RootComponent() {
   const location = useLocation();
   const onMessagesPage = location.pathname === "/messages";
+  const onMapPage = location.pathname === "/map";
 
   return (
     <>
@@ -72,12 +73,12 @@ function RootComponent() {
             <TabTitleUnread />
             <BgWrapper>
               <Header className="shrink-0" />
-              <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pb-6 sm:pb-8">
+              <main className={`min-h-0 min-w-0 flex-1 ${onMapPage ? "overflow-hidden" : "overflow-y-auto pb-6 sm:pb-8"}`}>
                 <Outlet />
               </main>
             </BgWrapper>
           </BackgroundProvider>
-          {!onMessagesPage && <ChatPopup />}
+          {!onMessagesPage && !onMapPage && <ChatPopup />}
         </WebSocketProvider>
         <Toaster richColors />
       </ThemeProvider>

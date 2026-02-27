@@ -20,6 +20,7 @@ const WS_EVENTS = {
   LEAVE_USER_ROOM: "leave:user",
   PRESENCE_HEARTBEAT: "presence:heartbeat",
   PRESENCE_UPDATE: "presence:update",
+  LOCATION_UPDATE: "location:update",
 } as const;
 
 interface WsEventPayload {
@@ -100,6 +101,7 @@ function showActivityToast(action: string, message: string) {
 interface UseWebSocketOptions {
   userId?: string;
   enabled?: boolean;
+  geoCoords?: { lat: number; lng: number } | null;
 }
 
 interface WebSocketState {
@@ -116,10 +118,12 @@ interface WebSocketState {
  * 3. Selective query invalidation - only invalidates relevant queries
  * 4. User rooms - prevents unnecessary updates for other users' data
  */
-export function useWebSocket({ userId, enabled = true }: UseWebSocketOptions): WebSocketState {
+export function useWebSocket({ userId, enabled = true, geoCoords }: UseWebSocketOptions): WebSocketState {
   const socketRef = useRef<Socket | null>(null);
   const pendingInvalidationsRef = useRef<Set<string>>(new Set());
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const geoCoordsRef = useRef(geoCoords);
+  geoCoordsRef.current = geoCoords;
   
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
@@ -265,11 +269,19 @@ export function useWebSocket({ userId, enabled = true }: UseWebSocketOptions): W
       queryClient.invalidateQueries({ queryKey: ["presence"] });
     });
 
-    // Presence: heartbeat every 2 min and on window focus so we stay "online" (not "away")
+    // Location: when any user's location changes, refetch location data
+    socket.on(WS_EVENTS.LOCATION_UPDATE, () => {
+      queryClient.invalidateQueries({ queryKey: [["location"]] });
+    });
+
+    // Presence + location heartbeat every 2 min and on window focus
     const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     const onPresenceHeartbeat = () => {
-      if (socket.connected && userId) socket.emit(WS_EVENTS.PRESENCE_HEARTBEAT);
+      if (!socket.connected || !userId) return;
+      const coords = geoCoordsRef.current;
+      const payload = coords ? { lat: coords.lat, lng: coords.lng } : undefined;
+      socket.emit(WS_EVENTS.PRESENCE_HEARTBEAT, payload);
     };
     if (userId) {
       heartbeatTimer = setInterval(onPresenceHeartbeat, HEARTBEAT_INTERVAL_MS);

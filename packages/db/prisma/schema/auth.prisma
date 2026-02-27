@@ -19,6 +19,7 @@ model User {
   posts           Post[]
   postLikes       PostLike[]
   postComments    PostComment[]
+  location        UserLocation?
 
   @@unique([email])
   @@map("user")
@@ -140,6 +141,18 @@ model PostComment {
   @@index([postId])
   @@index([authorId])
   @@map("post_comment")
+}
+
+model UserLocation {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude  Float
+  longitude Float
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedAt])
+  @@map("user_location")
 }
 
 // Keeping ChatMessage as it can be a UI component

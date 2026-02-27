@@ -11,13 +11,12 @@ export const env = createEnv({
       .url()
       .optional()
       .default(() => {
-        // At runtime, use current origin (works when served from same server)
         if (typeof window !== "undefined") {
           return window.location.origin;
         }
-        // Fallback for build time (Vite will embed this)
         return "http://localhost:3000";
       }),
+    VITE_GOOGLE_MAPS_API_KEY: z.string().min(1).optional().default(""),
   },
   runtimeEnv: (import.meta as any).env,
   emptyStringAsUndefined: true,

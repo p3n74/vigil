@@ -49,6 +49,7 @@ export default function Header() {
 
   const authLinks = [
     { to: "/messages", label: "Messages", show: true },
+    { to: "/map", label: "Map", show: isAdmin },
     { to: "/profile", label: "Profile", show: true },
     { to: "/team", label: "Team", show: isAdmin },
   ] as const;

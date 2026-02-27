@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MessagesRouteImport } from './routes/messages'
+import { Route as MapRouteImport } from './routes/map'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AccountRouteImport } from './routes/account'
@@ -30,6 +31,11 @@ const ProfileRoute = ProfileRouteImport.update({
 const MessagesRoute = MessagesRouteImport.update({
   id: '/messages',
   path: '/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MapRoute = MapRouteImport.update({
+  id: '/map',
+  path: '/map',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof AccountRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/map': typeof MapRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/team': typeof TeamRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/account': typeof AccountRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/map': typeof MapRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/team': typeof TeamRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/account': typeof AccountRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/map': typeof MapRoute
   '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRoute
   '/team': typeof TeamRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/dashboard'
     | '/login'
+    | '/map'
     | '/messages'
     | '/profile'
     | '/team'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/dashboard'
     | '/login'
+    | '/map'
     | '/messages'
     | '/profile'
     | '/team'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/dashboard'
     | '/login'
+    | '/map'
     | '/messages'
     | '/profile'
     | '/team'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
+  MapRoute: typeof MapRoute
   MessagesRoute: typeof MessagesRoute
   ProfileRoute: typeof ProfileRoute
   TeamRoute: typeof TeamRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/messages'
       fullPath: '/messages'
       preLoaderRoute: typeof MessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/map': {
+      id: '/map'
+      path: '/map'
+      fullPath: '/map'
+      preLoaderRoute: typeof MapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -180,6 +200,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
+  MapRoute: MapRoute,
   MessagesRoute: MessagesRoute,
   ProfileRoute: ProfileRoute,
   TeamRoute: TeamRoute,

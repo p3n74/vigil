@@ -135,8 +135,8 @@ app.post("/upload", (req, res) => {
       { createExpressMiddleware },
       { toNodeHandler },
       corsModule,
-      { createContext, setWsEmitter, setPresenceGetter },
-      { emitToAll, emitToUser, getPresenceMap, initWebSocket },
+      { createContext, setWsEmitter, setPresenceGetter, setLocationGetter },
+      { emitToAll, emitToUser, getPresenceMap, getLocationMap, initWebSocket, setPrismaRef },
     ] = await Promise.all([
       import("@template/api/routers/index"),
       import("@template/auth"),
@@ -152,12 +152,17 @@ app.post("/upload", (req, res) => {
     // Initialize WebSocket server
     initWebSocket(httpServer, env.CORS_ORIGIN);
 
-    // Wire up WebSocket emitter and presence getter to API context
+    // Wire up WebSocket emitter, presence getter, and location getter to API context
     setWsEmitter({
       emitToUser: (userId, payload) => emitToUser(userId, payload),
       emitToAll: (payload) => emitToAll(payload),
     });
     setPresenceGetter(() => getPresenceMap());
+    setLocationGetter(() => getLocationMap());
+
+    // Give WebSocket layer access to Prisma for location persistence
+    const { prisma } = await import("@template/db");
+    setPrismaRef(prisma);
 
     app.use(
       cors({

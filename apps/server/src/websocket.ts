@@ -24,6 +24,9 @@ export const WS_EVENTS = {
   // Presence (online / away / offline)
   PRESENCE_HEARTBEAT: "presence:heartbeat",
   PRESENCE_UPDATE: "presence:update",
+
+  // Location
+  LOCATION_UPDATE: "location:update",
 } as const;
 
 export type PresenceStatus = "online" | "away" | "offline";
@@ -41,9 +44,60 @@ interface PresenceEntry {
 const presenceMap = new Map<string, PresenceEntry>();
 let awayCheckInterval: ReturnType<typeof setInterval> | null = null;
 
+interface LocationEntry {
+  latitude: number;
+  longitude: number;
+  updatedAt: number;
+}
+
+const locationMap = new Map<string, LocationEntry>();
+const locationDbDirty = new Set<string>();
+let locationPersistInterval: ReturnType<typeof setInterval> | null = null;
+const LOCATION_PERSIST_INTERVAL_MS = 30_000; // flush to DB every 30s
+const LOCATION_CHANGE_THRESHOLD = 0.0001; // ~11m — skip broadcast if barely moved
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let prismaRef: any = null;
+
+export function setPrismaRef(p: unknown) {
+  prismaRef = p;
+}
+
 function broadcastPresence(userId: string, status: PresenceStatus) {
   if (!io) return;
   io.to(PRESENCE_ROOM).emit(WS_EVENTS.PRESENCE_UPDATE, { userId, status });
+}
+
+function broadcastLocation(userId: string, entry: LocationEntry) {
+  if (!io) return;
+  io.to(PRESENCE_ROOM).emit(WS_EVENTS.LOCATION_UPDATE, {
+    userId,
+    latitude: entry.latitude,
+    longitude: entry.longitude,
+    updatedAt: entry.updatedAt,
+  });
+}
+
+function startLocationPersistInterval() {
+  if (locationPersistInterval) return;
+  locationPersistInterval = setInterval(async () => {
+    if (!prismaRef || locationDbDirty.size === 0) return;
+    const batch = Array.from(locationDbDirty);
+    locationDbDirty.clear();
+    for (const userId of batch) {
+      const loc = locationMap.get(userId);
+      if (!loc) continue;
+      try {
+        await prismaRef.userLocation.upsert({
+          where: { userId },
+          update: { latitude: loc.latitude, longitude: loc.longitude },
+          create: { userId, latitude: loc.latitude, longitude: loc.longitude },
+        });
+      } catch (e) {
+        console.error(`[WS] Failed to persist location for ${userId}:`, e);
+      }
+    }
+  }, LOCATION_PERSIST_INTERVAL_MS);
 }
 
 function startAwayCheckInterval() {
@@ -142,7 +196,7 @@ export function initWebSocket(httpServer: HttpServer, corsOrigin: string): Serve
       }
     });
 
-    socket.on(WS_EVENTS.PRESENCE_HEARTBEAT, () => {
+    socket.on(WS_EVENTS.PRESENCE_HEARTBEAT, (payload?: { lat?: number; lng?: number }) => {
       const userId = Array.from(presenceMap.entries()).find(([, e]) => e.socketIds.has(socket.id))?.[0];
       if (userId) {
         const entry = presenceMap.get(userId);
@@ -152,6 +206,24 @@ export function initWebSocket(httpServer: HttpServer, corsOrigin: string): Serve
             entry.status = "online";
             broadcastPresence(userId, "online");
           }
+        }
+
+        if (payload && typeof payload.lat === "number" && typeof payload.lng === "number") {
+          const prev = locationMap.get(userId);
+          const now = Date.now();
+          const moved = !prev
+            || Math.abs(prev.latitude - payload.lat) > LOCATION_CHANGE_THRESHOLD
+            || Math.abs(prev.longitude - payload.lng) > LOCATION_CHANGE_THRESHOLD;
+
+          const locEntry: LocationEntry = { latitude: payload.lat, longitude: payload.lng, updatedAt: now };
+          locationMap.set(userId, locEntry);
+          locationDbDirty.add(userId);
+
+          if (moved) {
+            broadcastLocation(userId, locEntry);
+          }
+
+          startLocationPersistInterval();
         }
       }
     });
@@ -190,6 +262,17 @@ export function getPresenceMap(): Record<string, PresenceStatus> {
   const out: Record<string, PresenceStatus> = {};
   for (const [userId, entry] of presenceMap.entries()) {
     out[userId] = entry.status;
+  }
+  return out;
+}
+
+/**
+ * Get current in-memory location data for all online/away users
+ */
+export function getLocationMap(): Record<string, LocationEntry> {
+  const out: Record<string, LocationEntry> = {};
+  for (const [userId, entry] of locationMap.entries()) {
+    out[userId] = entry;
   }
   return out;
 }
