@@ -42,11 +42,6 @@ COPY --from=builder /app /app
 # Expose port (Cloud Run will use PORT env var, but this is for documentation)
 EXPOSE 3002
 
-# Health check for Cloud Run (optional but recommended)
-# Note: Cloud Run has its own health checks, this is just for Docker
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD bun --version || exit 1
-
 # Start the server
 # Cloud Run will automatically set PORT env var, which the app will use
 # Run source directly with Bun (Bun handles TypeScript and workspaces natively)

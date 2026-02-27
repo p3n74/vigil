@@ -38,11 +38,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "Aether Quickstart",
+        title: "Vigil",
       },
       {
         name: "description",
-        content: "A modern, production-ready fullstack monorepo template.",
+        content: "Vigil — a private, whitelisted social map and messaging app.",
       },
     ],
     links: [
