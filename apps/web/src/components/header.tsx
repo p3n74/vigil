@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Menu, X, Eye } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
+import { trpc } from "@/utils/trpc";
 import {
   Dialog,
   DialogClose,
@@ -20,6 +21,10 @@ import { WebSocketStatus } from "./websocket-provider";
 
 export default function Header() {
   const { data: session } = authClient.useSession();
+  const { data: roleData } = trpc.team.getMyRole.useQuery(undefined, {
+    enabled: !!session,
+    staleTime: 60_000,
+  });
   const navigate = useNavigate();
   const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -37,9 +42,11 @@ export default function Header() {
     { to: "/", label: "Home" },
   ] as const;
 
+  const isAdmin = roleData?.role === "ADMIN";
+
   const authLinks = [
-    { to: "/profile", label: "Profile" },
-    { to: "/team", label: "Team" },
+    { to: "/profile", label: "Profile", show: true },
+    { to: "/team", label: "Team", show: isAdmin },
   ] as const;
 
   const navLinkClass =
@@ -73,16 +80,18 @@ export default function Header() {
                 </Link>
               ))}
               {session &&
-                authLinks.map(({ to, label }) => (
-                  <Link
-                    key={to}
-                    to={to}
-                    className={navLinkClass}
-                    activeProps={{ className: navLinkActiveClass }}
-                  >
-                    {label}
-                  </Link>
-                ))}
+                authLinks
+                  .filter((link) => link.show)
+                  .map(({ to, label }) => (
+                    <Link
+                      key={to}
+                      to={to}
+                      className={navLinkClass}
+                      activeProps={{ className: navLinkActiveClass }}
+                    >
+                      {label}
+                    </Link>
+                  ))}
             </div>
           </div>
 
@@ -157,17 +166,19 @@ export default function Header() {
               </Link>
             ))}
             {session &&
-              authLinks.map(({ to, label }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  onClick={closeMobileMenu}
-                  className="rounded-lg px-4 py-3 text-base font-medium text-foreground hover:bg-muted"
-                  activeProps={{ className: "bg-muted text-foreground" }}
-                >
-                  {label}
-                </Link>
-              ))}
+              authLinks
+                .filter((link) => link.show)
+                .map(({ to, label }) => (
+                  <Link
+                    key={to}
+                    to={to}
+                    onClick={closeMobileMenu}
+                    className="rounded-lg px-4 py-3 text-base font-medium text-foreground hover:bg-muted"
+                    activeProps={{ className: "bg-muted text-foreground" }}
+                  >
+                    {label}
+                  </Link>
+                ))}
           </nav>
           {session && (
             <DialogFooter className="mt-auto border-t border-border/50 pt-4">
