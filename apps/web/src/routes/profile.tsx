@@ -3,9 +3,11 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
+import { PostImageCarousel } from "@/components/post-image-carousel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { NotWhitelistedView } from "@/components/not-whitelisted-view";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { trpc } from "@/utils/trpc";
 
 type ProfileSearch = {
@@ -115,7 +117,11 @@ function ProfileRoute() {
         <div className="flex items-center gap-4 sm:gap-6">
           <div className="relative h-20 w-20 overflow-hidden rounded-full bg-muted sm:h-24 sm:w-24">
             {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName ?? realName} className="h-full w-full object-cover" />
+              <img
+                src={resolveMediaUrl(avatarUrl)}
+                alt={displayName ?? realName}
+                className="h-full w-full object-cover"
+              />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-muted-foreground">
                 {(profile.name ?? "U").charAt(0)}
@@ -179,15 +185,15 @@ function ProfileRoute() {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-                {posts.map((post) => (
+                {posts.map((post: { id: string; imageUrl: string; imageUrls?: string[]; caption: string | null }) => (
                   <div
                     key={post.id}
                     className="group relative aspect-square w-full overflow-hidden rounded-xl bg-muted"
                   >
-                    <img
-                      src={post.imageUrl}
+                    <PostImageCarousel
+                      images={post.imageUrls?.length ? post.imageUrls : [post.imageUrl]}
                       alt={post.caption ?? "Post image"}
-                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      className="relative h-full w-full transition-transform duration-200 group-hover:scale-105"
                     />
                   </div>
                 ))}

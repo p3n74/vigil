@@ -102,6 +102,7 @@ model Post {
   authorId  String
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   imageUrl  String
+  imageUrls String[] @default([])
   caption   String?
   createdAt DateTime @default(now())
 

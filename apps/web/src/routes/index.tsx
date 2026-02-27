@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Trash2,
@@ -14,14 +14,19 @@ import {
   Rows3,
   Heart,
   MessageCircle,
+  ArrowLeft,
+  ArrowRight,
+  X,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import { NotWhitelistedView } from "@/components/not-whitelisted-view";
+import { PostImageCarousel } from "@/components/post-image-carousel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogHeader, DialogPopup, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/")({
@@ -178,6 +183,7 @@ type FeedProps = {
   posts: Array<{
     id: string;
     imageUrl: string;
+    imageUrls?: string[];
     caption: string | null;
     createdAt: string;
     author: {
@@ -224,10 +230,10 @@ function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps)
         {posts.map((post) => (
           <Card key={post.id} className="overflow-hidden p-2">
             <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-muted">
-              <img
-                src={post.imageUrl}
+              <PostImageCarousel
+                images={post.imageUrls?.length ? post.imageUrls : [post.imageUrl]}
                 alt={post.caption ?? "Post image"}
-                className="h-full w-full object-cover transition-transform duration-200 hover:scale-105"
+                className="relative h-full w-full"
               />
             </div>
             <div className="mt-2 flex items-center justify-between gap-1">
@@ -294,10 +300,10 @@ function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps)
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted">
-              <img
-                src={post.imageUrl}
+              <PostImageCarousel
+                images={post.imageUrls?.length ? post.imageUrls : [post.imageUrl]}
                 alt={post.caption ?? "Post image"}
-                className="h-full w-full object-cover"
+                className="relative h-full w-full"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -334,59 +340,105 @@ function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps)
 
 function PostComposer({ onPosted }: { onPosted: () => void }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const filesRef = useRef<Array<{ id: string; file: File; previewUrl: string }>>([]);
+  const [files, setFiles] = useState<Array<{ id: string; file: File; previewUrl: string }>>([]);
   const [caption, setCaption] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const createMutation = useMutation(trpc.posts.create.mutationOptions());
+
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  useEffect(() => {
+    return () => {
+      for (const entry of filesRef.current) {
+        URL.revokeObjectURL(entry.previewUrl);
+      }
+    };
+  }, []);
 
   const handlePickFile = () => {
     fileInputRef.current?.click();
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const nextFile = event.target.files?.[0] ?? null;
-    if (!nextFile) {
-      setFile(null);
-      setPreviewUrl(null);
+    const selected = Array.from(event.target.files ?? []);
+    if (!selected.length) {
       return;
     }
-    setFile(nextFile);
-    setPreviewUrl(URL.createObjectURL(nextFile));
+    setFiles((prev) => {
+      const remaining = 10 - prev.length;
+      const additions = selected.slice(0, Math.max(remaining, 0)).map((file) => ({
+        id: `${Date.now()}-${Math.random()}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }));
+      return [...prev, ...additions];
+    });
+    event.target.value = "";
+  };
+
+  const moveFile = (index: number, direction: "left" | "right") => {
+    setFiles((prev) => {
+      const target = direction === "left" ? index - 1 : index + 1;
+      if (target < 0 || target >= prev.length) {
+        return prev;
+      }
+      const next = [...prev];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item as (typeof prev)[number]);
+      return next;
+    });
+  };
+
+  const removeFile = (id: string) => {
+    setFiles((prev) => {
+      const file = prev.find((entry) => entry.id === id);
+      if (file) {
+        URL.revokeObjectURL(file.previewUrl);
+      }
+      return prev.filter((entry) => entry.id !== id);
+    });
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!file) {
+    if (!files.length) {
       return;
     }
 
     try {
       setIsSubmitting(true);
+      const uploadedUrls: string[] = [];
+      for (const entry of files) {
+        const formData = new FormData();
+        formData.append("file", entry.file);
 
-      const formData = new FormData();
-      formData.append("file", file);
+        const response = await fetch(resolveMediaUrl("/upload") ?? "/upload", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
 
-      const response = await fetch("/upload", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
+        if (!response.ok) {
+          throw new Error("Upload failed");
+        }
 
-      if (!response.ok) {
-        throw new Error("Upload failed");
+        const data = (await response.json()) as { imageUrl: string };
+        uploadedUrls.push(data.imageUrl);
       }
 
-      const data = (await response.json()) as { imageUrl: string };
-
       await createMutation.mutateAsync({
-        imageUrl: data.imageUrl,
+        imageUrls: uploadedUrls,
+        imageUrl: uploadedUrls[0],
         caption: caption.trim() || undefined,
       });
-
-      setFile(null);
-      setPreviewUrl(null);
+      for (const entry of files) {
+        URL.revokeObjectURL(entry.previewUrl);
+      }
+      setFiles([]);
       setCaption("");
 
       onPosted();
@@ -400,6 +452,7 @@ function PostComposer({ onPosted }: { onPosted: () => void }) {
       <input
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
         ref={fileInputRef}
         onChange={handleFileChange}
@@ -411,15 +464,62 @@ function PostComposer({ onPosted }: { onPosted: () => void }) {
         onClick={handlePickFile}
       >
         <ImageIcon className="size-4" />
-        {file ? "Change image" : "Choose image"}
+        {files.length ? `Add more images (${files.length}/10)` : "Choose images (up to 10)"}
       </Button>
-      {previewUrl && (
-        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted">
-          <img
-            src={previewUrl}
-            alt="Preview"
-            className="h-full w-full object-cover"
-          />
+      {files.length > 0 && (
+        <div className="space-y-3">
+          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted">
+            <img
+              src={files[0]?.previewUrl}
+              alt="Cover preview"
+              className="h-full w-full object-cover"
+            />
+            <p className="absolute left-2 top-2 rounded bg-black/50 px-2 py-1 text-xs text-white">
+              Cover image
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {files.map((entry, index) => (
+              <div key={entry.id} className="relative overflow-hidden rounded-lg border bg-muted p-1.5">
+                <div className="aspect-square overflow-hidden rounded-md">
+                  <img src={entry.previewUrl} alt={`Selected image ${index + 1}`} className="h-full w-full object-cover" />
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-1">
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="outline"
+                    onClick={() => moveFile(index, "left")}
+                    disabled={index === 0}
+                    aria-label="Move image left"
+                  >
+                    <ArrowLeft className="size-3.5" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">{index + 1}</span>
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="outline"
+                    onClick={() => moveFile(index, "right")}
+                    disabled={index === files.length - 1}
+                    aria-label="Move image right"
+                  >
+                    <ArrowRight className="size-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => removeFile(entry.id)}
+                    aria-label="Remove image"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
       <Textarea
@@ -431,7 +531,7 @@ function PostComposer({ onPosted }: { onPosted: () => void }) {
       <Button
         type="submit"
         className="w-full"
-        disabled={!file || isSubmitting}
+        disabled={!files.length || isSubmitting}
       >
         {isSubmitting ? "Posting..." : "Post to Vigil"}
       </Button>

@@ -58,10 +58,65 @@ httpServer.on("error", (error: Error) => {
 // Import path utilities (lightweight, safe to import)
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const uploadsDir = process.env.UPLOADS_DIR
+  ? path.resolve(env.UPLOADS_DIR)
+  : env.NODE_ENV === "production"
+    ? env.UPLOADS_DIR
+    : path.resolve(__dirname, "../uploads");
+
+try {
+  mkdirSync(uploadsDir, { recursive: true });
+} catch (error) {
+  console.error(`❌ Failed to create uploads directory at ${uploadsDir}:`, error);
+  process.exit(1);
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req: any, _file: any, cb: any) => {
+      cb(null, uploadsDir);
+    },
+    filename: (_req: any, file: any, cb: any) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const ext = path.extname(file.originalname) || "";
+      cb(null, `${uniqueSuffix}${ext}`);
+    },
+  }),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
+  fileFilter: (_req: any, file: any, cb: any) => {
+    if (!file.mimetype?.startsWith("image/")) {
+      cb(new Error("Only image uploads are allowed."));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+app.use("/uploads", express.static(uploadsDir));
+
+app.post("/upload", (req, res) => {
+  upload.single("file")(req, res, (error: unknown) => {
+    if (error) {
+      const message = error instanceof Error ? error.message : "Upload failed";
+      return res.status(400).json({ error: message });
+    }
+
+    const uploadedFile = (req as typeof req & { file?: { filename: string } }).file;
+    if (!uploadedFile) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const imageUrl = `/uploads/${uploadedFile.filename}`;
+    return res.status(200).json({ imageUrl });
+  });
+});
 
 // Now dynamically import and initialize the rest of the application
 // Using dynamic imports ensures the server is already listening before
@@ -94,23 +149,6 @@ const __dirname = path.dirname(__filename);
 
     const cors = corsModule.default;
 
-    const uploadsDir = path.resolve(__dirname, "../uploads");
-    const upload = multer({
-      storage: multer.diskStorage({
-        destination: (_req, _file, cb) => {
-          cb(null, uploadsDir);
-        },
-        filename: (_req, file, cb) => {
-          const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-          const ext = path.extname(file.originalname) || "";
-          cb(null, `${uniqueSuffix}${ext}`);
-        },
-      }),
-      limits: {
-        fileSize: 10 * 1024 * 1024,
-      },
-    });
-
     // Initialize WebSocket server
     initWebSocket(httpServer, env.CORS_ORIGIN);
 
@@ -132,17 +170,6 @@ const __dirname = path.dirname(__filename);
 
     app.all("/api/auth", toNodeHandler(auth));
     app.all("/api/auth/*path", toNodeHandler(auth));
-
-    app.use("/uploads", express.static(uploadsDir));
-
-    app.post("/upload", upload.single("file"), (req, res) => {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-
-      const imageUrl = `/uploads/${req.file.filename}`;
-      return res.status(200).json({ imageUrl });
-    });
 
     app.use(
       "/trpc",
@@ -176,7 +203,13 @@ if (existsSync(webDistPath)) {
   // Fallback to index.html for SPA routing
   app.get("/*path", (req, res, next) => {
     // Don't intercept TRPC or Auth routes
-    if (req.path.startsWith("/trpc") || req.path.startsWith("/api/auth")) {
+    if (
+      req.path.startsWith("/trpc") ||
+      req.path.startsWith("/api/auth") ||
+      req.path.startsWith("/uploads") ||
+      req.path === "/upload" ||
+      req.path.startsWith("/ws")
+    ) {
       return next();
     }
     const indexPath = path.join(webDistPath, "index.html");

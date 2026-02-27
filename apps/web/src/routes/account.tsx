@@ -5,6 +5,7 @@ import { Loader2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { resolveMediaUrl } from "@/lib/media-url";
 import { trpc } from "@/utils/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,7 +111,7 @@ function AccountForm({ sessionEmail, profile, updateProfile, onBack }: AccountFo
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/upload", {
+      const response = await fetch(resolveMediaUrl("/upload") ?? "/upload", {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -166,7 +167,7 @@ function AccountForm({ sessionEmail, profile, updateProfile, onBack }: AccountFo
               <div className="relative h-16 w-16 overflow-hidden rounded-full bg-muted">
                 {effectiveAvatar ? (
                   <img
-                    src={effectiveAvatar}
+                    src={resolveMediaUrl(effectiveAvatar)}
                     alt="Profile"
                     className="h-full w-full object-cover"
                   />

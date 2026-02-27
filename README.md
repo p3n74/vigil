@@ -65,6 +65,28 @@ To run specifically:
 - `bun run dev:server`: Start only the backend server
 - `bun run dev:native`: Start the mobile app
 
+## Persistent Uploads (Coolify)
+
+Uploads are stored on disk by the server and served from `/uploads/*`.
+
+- Set `UPLOADS_DIR` in your server environment (example: `/app/uploads`).
+- In Coolify, open your app config and add a Persistent Storage volume.
+- Set the volume destination path to the same value as `UPLOADS_DIR` (for example `/app/uploads`).
+- Keep these paths identical. If they differ, files may upload but not persist after rebuilds.
+
+### Deploy Checklist
+
+- `UPLOADS_DIR` is set in Coolify environment variables.
+- A Persistent Storage volume is attached to the same destination path.
+- Upload a test image, then redeploy and confirm the old image still loads from `/uploads/...`.
+
+## Multi-Image Posts Migration
+
+Posts now support up to 10 images with ordering (cover image is first item).
+
+- Apply DB script: `packages/db/scripts/2026-02-27-add-post-image-urls.sql`
+- This script adds `post.imageUrls` and backfills existing rows from `post.imageUrl`.
+
 ## 🛡️ Authentication & Authorization
 
 This template uses **Better-Auth** for secure authentication. 

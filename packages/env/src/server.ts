@@ -13,6 +13,8 @@ export const env = createEnv({
     EMAIL_PROVIDER: z.string().min(1).optional().default("gmail"),
     EMAIL_FROM: z.string().email().optional().default("placeholder@gmail.com"),
     EMAIL_PASSWORD: z.string().min(1).optional().default("placeholder"),
+    // Directory for persisted uploads (set to Coolify-mounted path in production).
+    UPLOADS_DIR: z.string().optional().default("/app/uploads"),
     NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
     PORT: z.coerce.number().optional().default(3000),
     HOST: z.string().optional().default("0.0.0.0"), // Bind address (0.0.0.0 for Cloud Run, localhost for local dev)

@@ -3,6 +3,13 @@ import { TRPCError } from "@trpc/server";
 
 import { protectedProcedure, router, whitelistedProcedure } from "../index";
 
+const isAllowedImageUrl = (value: string) => {
+  if (value.startsWith("/uploads/")) {
+    return true;
+  }
+  return z.string().url().safeParse(value).success;
+};
+
 export const userRouter = router({
   getMe: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.session.user.id;
@@ -51,7 +58,11 @@ export const userRouter = router({
         displayName: z.string().max(50).nullable().optional(),
         bio: z.string().max(1000).nullable().optional(),
         avatarMode: z.enum(["GOOGLE", "CUSTOM"]).optional(),
-        customImageUrl: z.string().url().optional(),
+        customImageUrl: z
+          .string()
+          .min(1)
+          .refine(isAllowedImageUrl, "Image URL must be absolute or use /uploads/...")
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
