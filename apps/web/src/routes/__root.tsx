@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { HeadContent, Outlet, createRootRouteWithContext, useLocation } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { trpc } from "@/utils/trpc";
@@ -55,6 +55,9 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
+  const location = useLocation();
+  const onMessagesPage = location.pathname === "/messages";
+
   return (
     <>
       <HeadContent />
@@ -74,7 +77,7 @@ function RootComponent() {
               </main>
             </BgWrapper>
           </BackgroundProvider>
-          <ChatPopup />
+          {!onMessagesPage && <ChatPopup />}
         </WebSocketProvider>
         <Toaster richColors />
       </ThemeProvider>

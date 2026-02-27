@@ -48,6 +48,7 @@ export default function Header() {
   const isAdmin = roleQuery.data?.role === "ADMIN";
 
   const authLinks = [
+    { to: "/messages", label: "Messages", show: true },
     { to: "/profile", label: "Profile", show: true },
     { to: "/team", label: "Team", show: isAdmin },
   ] as const;
