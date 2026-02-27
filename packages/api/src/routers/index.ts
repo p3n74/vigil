@@ -7,6 +7,7 @@ import { teamRouter } from "./team";
 import { chatRouter } from "./chat";
 import { presenceRouter } from "./presence";
 import { postsRouter } from "./posts";
+import { userRouter } from "./user";
 
 // Helper function to create activity logs and emit WebSocket event
 async function logActivity(
@@ -46,6 +47,7 @@ export const appRouter = router({
   }),
   
   team: teamRouter,
+  user: userRouter,
   chat: chatRouter,
   presence: presenceRouter,
   posts: postsRouter,

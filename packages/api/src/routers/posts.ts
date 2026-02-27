@@ -15,6 +15,12 @@ const FEED_INPUT = z
   })
   .optional();
 
+const PROFILE_FEED_INPUT = z.object({
+  userId: z.string(),
+  limit: z.number().min(1).max(50).optional(),
+  cursor: z.string().optional(),
+});
+
 const authorOrAdminProcedure = protectedProcedure.use(({ ctx, next }) => {
   const role = ctx.userRole;
   if (role !== "ADMIN" && role !== "AUTHOR") {
@@ -55,6 +61,35 @@ export const postsRouter = router({
       nextCursor,
     };
   }),
+
+  byAuthor: whitelistedProcedure
+    .input(PROFILE_FEED_INPUT)
+    .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 20;
+      const cursor = input.cursor;
+
+      const posts = await ctx.prisma.post.findMany({
+        where: { authorId: input.userId },
+        take: limit + (cursor ? 1 : 0),
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: {
+          id: true,
+          imageUrl: true,
+          caption: true,
+          createdAt: true,
+        },
+      });
+
+      const hasMore = posts.length > limit;
+      const items = posts.slice(0, limit);
+      const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
+
+      return {
+        items,
+        nextCursor,
+      };
+    }),
 
   create: authorOrAdminProcedure
     .input(CREATE_POST_INPUT)

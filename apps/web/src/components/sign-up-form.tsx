@@ -20,7 +20,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
 
   const handleGoogleSignIn = async () => {
     const callbackURL =
-      typeof window === "undefined" ? "/dashboard" : `${window.location.origin}/dashboard`;
+      typeof window === "undefined" ? "/" : `${window.location.origin}/`;
     setIsGoogleLoading(true);
     try {
       await authClient.signIn.social({
@@ -50,7 +50,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         {
           onSuccess: () => {
             navigate({
-              to: "/dashboard",
+              to: "/",
             });
             toast.success("Sign up successful");
           },

@@ -1,21 +1,27 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  LayoutDashboard,
+  Trash2,
   Eye,
   Camera,
   BookOpen,
   ImageIcon,
-  Users,
   Loader2,
+  Plus,
+  Grid3X3,
+  Rows3,
+  Heart,
+  MessageCircle,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import { NotWhitelistedView } from "@/components/not-whitelisted-view";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogHeader, DialogPopup, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/utils/trpc";
 
 export const Route = createFileRoute("/")({
@@ -67,50 +73,369 @@ function LandingPage() {
 }
 
 function SignedInHome({ error }: { error?: string }) {
-  const { data: session } = authClient.useSession();
   const roleQuery = useQuery(trpc.team.getMyRole.queryOptions());
+  const postsQueryOptions = trpc.posts.feed.queryOptions({
+    limit: 20,
+  });
+  const postsQuery = useQuery(postsQueryOptions);
+  const role = roleQuery.data?.role ?? null;
+  const canPost = role === "AUTHOR" || role === "ADMIN";
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   return (
-    <div className="mx-auto max-w-6xl min-w-0 px-3 py-6 sm:px-4 sm:py-8 text-center">
-      <div className="mb-8">
+    <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-4 px-3 py-4 sm:gap-6 sm:px-4 sm:py-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
         <p className="text-xs font-medium uppercase tracking-widest text-primary">Vigil</p>
-        <h1 className="text-4xl font-bold tracking-tight mb-2">
-          Welcome back, {session?.user.name?.split(" ")[0] ?? "User"}
+        <h1 className="text-3xl font-bold tracking-tight">
+          Home feed
         </h1>
         {error ? (
-          <p className="text-destructive max-w-2xl mx-auto">
+          <p className="text-destructive">
             Failed to load permissions: {error}. Please ensure the server is running.
           </p>
         ) : (
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            You are currently signed in as <span className="text-foreground font-medium">{session?.user.email}</span> 
-            with the role <span className="text-primary font-semibold">{roleQuery.data?.role ?? "None"}</span>.
+          <p className="text-sm text-muted-foreground">
+            Latest moments from you and your circle.
           </p>
+        )}
+        </div>
+        {canPost && (
+          <CreatePostDialog onPosted={() => postsQuery.refetch()} />
         )}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 max-w-2xl mx-auto">
-        <Card className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => window.location.href = '/dashboard'}>
-          <CardHeader>
-            <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-              <LayoutDashboard className="text-primary" />
-            </div>
-            <CardTitle>Go to Dashboard</CardTitle>
-            <CardDescription>View your personalized workspace</CardDescription>
-          </CardHeader>
-        </Card>
-
-        <Card className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => window.location.href = '/team'}>
-          <CardHeader>
-            <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-              <Users className="text-primary" />
-            </div>
-            <CardTitle>Manage Team</CardTitle>
-            <CardDescription>Configure users and permissions</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Feed view</p>
+        <div className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-background/50 p-1">
+          <Button
+            size="sm"
+            variant={viewMode === "list" ? "default" : "ghost"}
+            className="gap-1.5"
+            onClick={() => setViewMode("list")}
+          >
+            <Rows3 className="size-3.5" />
+            List
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === "grid" ? "default" : "ghost"}
+            className="gap-1.5"
+            onClick={() => setViewMode("grid")}
+          >
+            <Grid3X3 className="size-3.5" />
+            Grid
+          </Button>
+        </div>
       </div>
+
+      <Feed
+        posts={postsQuery.data?.items ?? []}
+        isLoading={postsQuery.isLoading}
+        onRefresh={() => postsQuery.refetch()}
+        canModerate={role === "ADMIN"}
+        viewMode={viewMode}
+      />
+      {canPost && <CreatePostDialog onPosted={() => postsQuery.refetch()} floating />}
     </div>
+  );
+}
+
+function CreatePostDialog({ onPosted, floating = false }: { onPosted: () => void; floating?: boolean }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        className={
+          floating
+            ? "fixed bottom-6 right-5 z-40 size-14 rounded-full shadow-xl md:hidden"
+            : "hidden shrink-0 gap-2 md:inline-flex"
+        }
+        size={floating ? "icon-lg" : "default"}
+        onClick={() => setOpen(true)}
+        aria-label="Create post"
+      >
+        <Plus className="size-4" />
+        {!floating && "Create post"}
+      </Button>
+      <DialogPopup className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Create a post</DialogTitle>
+        </DialogHeader>
+        <PostComposer
+          onPosted={() => {
+            onPosted();
+            setOpen(false);
+          }}
+        />
+      </DialogPopup>
+    </Dialog>
+  );
+}
+
+type FeedProps = {
+  posts: Array<{
+    id: string;
+    imageUrl: string;
+    caption: string | null;
+    createdAt: string;
+    author: {
+      name: string | null;
+    };
+  }>;
+  isLoading: boolean;
+  onRefresh: () => void;
+  canModerate: boolean;
+  viewMode: "list" | "grid";
+};
+
+function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps) {
+  const deleteMutation = useMutation(
+    trpc.posts.delete.mutationOptions({
+      onSuccess: () => {
+        onRefresh();
+      },
+    }),
+  );
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!posts.length) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">
+          No posts yet. Be the first to share something.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (viewMode === "grid") {
+    return (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {posts.map((post) => (
+          <Card key={post.id} className="overflow-hidden p-2">
+            <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-muted">
+              <img
+                src={post.imageUrl}
+                alt={post.caption ?? "Post image"}
+                className="h-full w-full object-cover transition-transform duration-200 hover:scale-105"
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-1">
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2"
+                  onClick={() =>
+                    setLikedPosts((prev) => ({
+                      ...prev,
+                      [post.id]: !prev[post.id],
+                    }))
+                  }
+                >
+                  <Heart className={`size-4 ${likedPosts[post.id] ? "fill-current text-rose-500" : ""}`} />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => toast.message("Comments coming soon")}>
+                  <MessageCircle className="size-4" />
+                </Button>
+              </div>
+              {canModerate && (
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => deleteMutation.mutate({ id: post.id })}
+                  disabled={deleteMutation.isPending}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              )}
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {posts.map((post) => (
+        <Card key={post.id} className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-base">
+                {post.author.name ?? "Unknown user"}
+              </CardTitle>
+              <CardDescription>
+                {new Date(post.createdAt).toLocaleString()}
+              </CardDescription>
+            </div>
+            {canModerate && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-destructive"
+                onClick={() => deleteMutation.mutate({ id: post.id })}
+                disabled={deleteMutation.isPending}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted">
+              <img
+                src={post.imageUrl}
+                alt={post.caption ?? "Post image"}
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-2"
+                onClick={() =>
+                  setLikedPosts((prev) => ({
+                    ...prev,
+                    [post.id]: !prev[post.id],
+                  }))
+                }
+              >
+                <Heart className={`size-4 ${likedPosts[post.id] ? "fill-current text-rose-500" : ""}`} />
+                {likedPosts[post.id] ? "Liked" : "Like"}
+              </Button>
+              <Button size="sm" variant="ghost" className="gap-2" onClick={() => toast.message("Comments coming soon")}>
+                <MessageCircle className="size-4" />
+                Comment
+              </Button>
+            </div>
+            {post.caption && (
+              <p className="text-sm text-foreground whitespace-pre-wrap">
+                {post.caption}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function PostComposer({ onPosted }: { onPosted: () => void }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const createMutation = useMutation(trpc.posts.create.mutationOptions());
+
+  const handlePickFile = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    if (!nextFile) {
+      setFile(null);
+      setPreviewUrl(null);
+      return;
+    }
+    setFile(nextFile);
+    setPreviewUrl(URL.createObjectURL(nextFile));
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!file) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = (await response.json()) as { imageUrl: string };
+
+      await createMutation.mutateAsync({
+        imageUrl: data.imageUrl,
+        caption: caption.trim() || undefined,
+      });
+
+      setFile(null);
+      setPreviewUrl(null);
+      setCaption("");
+
+      onPosted();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form className="space-y-4" onSubmit={handleSubmit}>
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full justify-center gap-2"
+        onClick={handlePickFile}
+      >
+        <ImageIcon className="size-4" />
+        {file ? "Change image" : "Choose image"}
+      </Button>
+      {previewUrl && (
+        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted">
+          <img
+            src={previewUrl}
+            alt="Preview"
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
+      <Textarea
+        placeholder="Write a short caption (optional)..."
+        value={caption}
+        onChange={(event) => setCaption(event.target.value)}
+        rows={3}
+      />
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={!file || isSubmitting}
+      >
+        {isSubmitting ? "Posting..." : "Post to Vigil"}
+      </Button>
+    </form>
   );
 }
 

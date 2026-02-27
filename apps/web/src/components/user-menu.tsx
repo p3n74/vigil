@@ -41,6 +41,25 @@ export default function UserMenu() {
           <DropdownMenuSeparator />
           <DropdownMenuItem>{session.user?.email ?? ""}</DropdownMenuItem>
           <DropdownMenuItem
+            onClick={() => {
+              navigate({
+                to: "/profile",
+                search: {
+                  userId: session.user?.id,
+                },
+              });
+            }}
+          >
+            My profile
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              navigate({ to: "/account" });
+            }}
+          >
+            Profile settings
+          </DropdownMenuItem>
+          <DropdownMenuItem
             variant="destructive"
             onClick={() => {
               authClient.signOut({

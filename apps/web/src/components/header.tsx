@@ -38,7 +38,7 @@ export default function Header() {
   ] as const;
 
   const authLinks = [
-    { to: "/dashboard", label: "Dashboard" },
+    { to: "/profile", label: "Profile" },
     { to: "/team", label: "Team" },
   ] as const;
 

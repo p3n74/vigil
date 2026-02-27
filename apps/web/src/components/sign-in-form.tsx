@@ -12,7 +12,7 @@ export default function SignInForm() {
 
   const handleGoogleSignIn = async () => {
     const callbackURL =
-      typeof window === "undefined" ? "/dashboard" : `${window.location.origin}/dashboard`;
+      typeof window === "undefined" ? "/" : `${window.location.origin}/`;
     setIsGoogleLoading(true);
     try {
       await authClient.signIn.social({
