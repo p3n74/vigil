@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -21,7 +22,8 @@ import { WebSocketStatus } from "./websocket-provider";
 
 export default function Header() {
   const { data: session } = authClient.useSession();
-  const { data: roleData } = trpc.team.getMyRole.useQuery(undefined, {
+  const roleQuery = useQuery({
+    ...trpc.team.getMyRole.queryOptions(),
     enabled: !!session,
     staleTime: 60_000,
   });
@@ -42,7 +44,7 @@ export default function Header() {
     { to: "/", label: "Home" },
   ] as const;
 
-  const isAdmin = roleData?.role === "ADMIN";
+  const isAdmin = roleQuery.data?.role === "ADMIN";
 
   const authLinks = [
     { to: "/profile", label: "Profile", show: true },

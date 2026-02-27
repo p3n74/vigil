@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Trash2,
@@ -26,8 +26,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogHeader, DialogPopup, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { formatPostDate } from "@/lib/format-date";
 import { resolveMediaUrl } from "@/lib/media-url";
-import { trpc } from "@/utils/trpc";
+import { trpc, trpcClient } from "@/utils/trpc";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -77,15 +78,68 @@ function LandingPage() {
   return <SignedOutHome />;
 }
 
+const PAGE_SIZE = 10;
+
 function SignedInHome({ error }: { error?: string }) {
   const roleQuery = useQuery(trpc.team.getMyRole.queryOptions());
-  const postsQueryOptions = trpc.posts.feed.queryOptions({
-    limit: 20,
-  });
-  const postsQuery = useQuery(postsQueryOptions);
   const role = roleQuery.data?.role ?? null;
   const canPost = role === "AUTHOR" || role === "ADMIN";
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  const [pages, setPages] = useState<FeedPost[][]>([]);
+  const [cursor, setCursor] = useState<string | null | undefined>(undefined);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const initialQuery = useQuery(trpc.posts.feed.queryOptions({ limit: PAGE_SIZE }));
+
+  useEffect(() => {
+    if (initialQuery.data) {
+      setPages([initialQuery.data.items as FeedPost[]]);
+      setCursor(initialQuery.data.nextCursor);
+      setHasMore(!!initialQuery.data.nextCursor);
+    }
+  }, [initialQuery.data]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingPage || !hasMore || !cursor) return;
+    setIsLoadingPage(true);
+    try {
+      const result = await trpcClient.posts.feed.query({
+        limit: PAGE_SIZE,
+        cursor,
+      });
+      setPages((prev) => [...prev, result.items as FeedPost[]]);
+      setCursor(result.nextCursor);
+      setHasMore(!!result.nextCursor);
+    } finally {
+      setIsLoadingPage(false);
+    }
+  }, [cursor, hasMore, isLoadingPage]);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  const allPosts = pages.flat();
+
+  const handleRefresh = () => {
+    setPages([]);
+    setCursor(undefined);
+    setHasMore(true);
+    initialQuery.refetch();
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-4 px-3 py-4 sm:gap-6 sm:px-4 sm:py-6">
@@ -106,7 +160,7 @@ function SignedInHome({ error }: { error?: string }) {
         )}
         </div>
         {canPost && (
-          <CreatePostDialog onPosted={() => postsQuery.refetch()} />
+          <CreatePostDialog onPosted={handleRefresh} />
         )}
       </div>
 
@@ -135,13 +189,28 @@ function SignedInHome({ error }: { error?: string }) {
       </div>
 
       <Feed
-        posts={postsQuery.data?.items ?? []}
-        isLoading={postsQuery.isLoading}
-        onRefresh={() => postsQuery.refetch()}
+        posts={allPosts}
+        isLoading={initialQuery.isLoading}
+        onRefresh={handleRefresh}
         canModerate={role === "ADMIN"}
         viewMode={viewMode}
       />
-      {canPost && <CreatePostDialog onPosted={() => postsQuery.refetch()} floating />}
+
+      {/* Scroll sentinel + loading/end indicators */}
+      <div ref={sentinelRef} className="py-2" />
+      {isLoadingPage && (
+        <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Loading more posts...
+        </div>
+      )}
+      {!hasMore && allPosts.length > 0 && !isLoadingPage && (
+        <p className="py-6 text-center text-xs text-muted-foreground">
+          You've reached the end
+        </p>
+      )}
+
+      {canPost && <CreatePostDialog onPosted={handleRefresh} floating />}
     </div>
   );
 }
@@ -179,22 +248,40 @@ function CreatePostDialog({ onPosted, floating = false }: { onPosted: () => void
   );
 }
 
-type FeedProps = {
-  posts: Array<{
+type FeedPost = {
+  id: string;
+  imageUrl: string;
+  imageUrls?: string[];
+  caption: string | null;
+  createdAt: string;
+  author: {
+    name: string | null;
+    image?: string | null;
+  };
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+   comments?: Array<{
     id: string;
-    imageUrl: string;
-    imageUrls?: string[];
-    caption: string | null;
+    content: string;
     createdAt: string;
     author: {
       name: string | null;
+      image?: string | null;
     };
   }>;
+};
+
+type FeedProps = {
+  posts: FeedPost[];
   isLoading: boolean;
   onRefresh: () => void;
   canModerate: boolean;
   viewMode: "list" | "grid";
 };
+
+const truncate = (value: string, max: number) =>
+  value.length <= max ? value : `${value.slice(0, max - 1)}…`;
 
 function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps) {
   const deleteMutation = useMutation(
@@ -205,6 +292,26 @@ function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps)
     }),
   );
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [commentsPost, setCommentsPost] = useState<FeedPost | null>(null);
+
+  const likeMutation = useMutation(
+    trpc.posts.toggleLike.mutationOptions({
+      onSuccess: (data, variables) => {
+        setLikedPosts((prev) => ({
+          ...prev,
+          [variables.postId]: data.liked,
+        }));
+        setLikeCounts((prev) => ({
+          ...prev,
+          [variables.postId]: data.likeCount,
+        }));
+      },
+    }),
+  );
+
+  const isLiked = (post: FeedPost) => likedPosts[post.id] ?? post.likedByMe;
+  const getLikeCount = (post: FeedPost) => likeCounts[post.id] ?? post.likeCount;
 
   if (isLoading) {
     return (
@@ -242,16 +349,16 @@ function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps)
                   size="sm"
                   variant="ghost"
                   className="h-8 px-2"
-                  onClick={() =>
-                    setLikedPosts((prev) => ({
-                      ...prev,
-                      [post.id]: !prev[post.id],
-                    }))
-                  }
+                  onClick={() => likeMutation.mutate({ postId: post.id })}
                 >
-                  <Heart className={`size-4 ${likedPosts[post.id] ? "fill-current text-rose-500" : ""}`} />
+                  <Heart className={`size-4 ${isLiked(post) ? "fill-current text-rose-500" : ""}`} />
                 </Button>
-                <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => toast.message("Comments coming soon")}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2"
+                  onClick={() => setCommentsPost(post)}
+                >
                   <MessageCircle className="size-4" />
                 </Button>
               </div>
@@ -278,13 +385,28 @@ function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps)
       {posts.map((post) => (
         <Card key={post.id} className="overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-base">
-                {post.author.name ?? "Unknown user"}
-              </CardTitle>
-              <CardDescription>
-                {new Date(post.createdAt).toLocaleString()}
-              </CardDescription>
+            <div className="flex items-center gap-3">
+              <div className="relative h-9 w-9 overflow-hidden rounded-full bg-muted">
+                {post.author.image ? (
+                  <img
+                    src={resolveMediaUrl(post.author.image)}
+                    alt={post.author.name ?? "User"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
+                    {(post.author.name ?? "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-0.5">
+                <CardTitle className="text-sm font-semibold">
+                  {post.author.name ?? "Unknown user"}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {formatPostDate(post.createdAt)}
+                </CardDescription>
+              </div>
             </div>
             {canModerate && (
               <Button
@@ -311,30 +433,164 @@ function Feed({ posts, isLoading, onRefresh, canModerate, viewMode }: FeedProps)
                 size="sm"
                 variant="ghost"
                 className="gap-2"
-                onClick={() =>
-                  setLikedPosts((prev) => ({
-                    ...prev,
-                    [post.id]: !prev[post.id],
-                  }))
-                }
+                onClick={() => likeMutation.mutate({ postId: post.id })}
               >
-                <Heart className={`size-4 ${likedPosts[post.id] ? "fill-current text-rose-500" : ""}`} />
-                {likedPosts[post.id] ? "Liked" : "Like"}
+                <Heart className={`size-4 ${isLiked(post) ? "fill-current text-rose-500" : ""}`} />
+                {isLiked(post) ? "Liked" : "Like"}
               </Button>
-              <Button size="sm" variant="ghost" className="gap-2" onClick={() => toast.message("Comments coming soon")}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-2"
+                onClick={() => setCommentsPost(post)}
+              >
                 <MessageCircle className="size-4" />
                 Comment
               </Button>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {getLikeCount(post)} {getLikeCount(post) === 1 ? "like" : "likes"} ·{" "}
+              {post.commentCount === 0
+                ? "No comments yet"
+                : post.commentCount === 1
+                  ? "1 comment"
+                  : `${post.commentCount} comments`}
             </div>
             {post.caption && (
               <p className="text-sm text-foreground whitespace-pre-wrap">
                 {post.caption}
               </p>
             )}
+            {post.comments && post.comments.length > 0 && (
+              <div className="space-y-1 pt-1 text-sm text-foreground">
+                {post.comments.slice(0, 2).map((comment) => (
+                  <p key={comment.id} className="overflow-hidden text-ellipsis">
+                    <span className="mr-1 font-semibold">
+                      {comment.author.name ?? "Unknown user"}:
+                    </span>
+                    <span>{truncate(comment.content, 120)}</span>
+                  </p>
+                ))}
+                {post.commentCount > (post.comments?.length ?? 0) && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-primary hover:underline"
+                    onClick={() => setCommentsPost(post)}
+                  >
+                    View all {post.commentCount} comments
+                  </button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}
+      {commentsPost && (
+        <CommentsDialog
+          post={commentsPost}
+          onClose={() => setCommentsPost(null)}
+        />
+      )}
     </div>
+  );
+}
+
+type CommentsDialogProps = {
+  post: FeedPost;
+  onClose: () => void;
+};
+
+function CommentsDialog({ post, onClose }: CommentsDialogProps) {
+  const [content, setContent] = useState("");
+  const commentsQuery = useQuery(trpc.posts.getComments.queryOptions({ postId: post.id }));
+  const addCommentMutation = useMutation(
+    trpc.posts.addComment.mutationOptions({
+      onSuccess: async () => {
+        setContent("");
+        await commentsQuery.refetch();
+      },
+      onError: (error) => {
+        toast.error(error.message);
+      },
+    }),
+  );
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!content.trim()) return;
+    addCommentMutation.mutate({
+      postId: post.id,
+      content: content.trim(),
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogPopup className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Comments</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 p-4">
+          <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+            {commentsQuery.isLoading ? (
+              <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                Loading comments...
+              </div>
+            ) : commentsQuery.data && commentsQuery.data.length > 0 ? (
+              commentsQuery.data.map((comment) => (
+                <div key={comment.id} className="flex items-start gap-3 text-sm">
+                  <div className="mt-0.5 h-7 w-7 overflow-hidden rounded-full bg-muted">
+                    {comment.author.image ? (
+                      <img
+                        src={resolveMediaUrl(comment.author.image)}
+                        alt={comment.author.name ?? "User"}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs font-medium text-muted-foreground">
+                        {(comment.author.name ?? "U").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold">
+                      {comment.author.name ?? "Unknown user"}{" "}
+                      <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                        {formatPostDate(comment.createdAt as string)}
+                      </span>
+                    </p>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {comment.content}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-4 text-sm text-muted-foreground">
+                No comments yet. Be the first to share your thoughts.
+              </div>
+            )}
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-2 border-t border-border/60 pt-3">
+            <Textarea
+              rows={2}
+              placeholder="Add a comment..."
+              value={content}
+              onChange={(event) => setContent(event.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                Close
+              </Button>
+              <Button type="submit" size="sm" disabled={addCommentMutation.isPending || !content.trim()}>
+                {addCommentMutation.isPending ? "Posting..." : "Post"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </DialogPopup>
+    </Dialog>
   );
 }
 

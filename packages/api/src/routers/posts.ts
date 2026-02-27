@@ -59,9 +59,10 @@ export const postsRouter = router({
   feed: whitelistedProcedure.input(FEED_INPUT).query(async ({ ctx, input }) => {
     const limit = input?.limit ?? 20;
     const cursor = input?.cursor;
+    const userId = ctx.session?.user.id ?? null;
 
     const posts = await ctx.prisma.post.findMany({
-      take: limit + (cursor ? 1 : 0),
+      take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: {
@@ -72,6 +73,33 @@ export const postsRouter = router({
             image: true,
           },
         },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+          },
+        },
+        ...(userId
+          ? {
+              likes: {
+                where: { userId },
+                select: { id: true },
+              },
+            }
+          : {}),
+        comments: {
+          take: 2,
+          orderBy: { createdAt: "asc" },
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -79,8 +107,22 @@ export const postsRouter = router({
     const items = posts.slice(0, limit);
     const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
 
+    const mapped = items.map((post) => {
+      const base = withFallbackImages(post);
+      const likedByMe = userId ? base.likes?.length > 0 : false;
+      const likeCount = base._count.likes;
+      const commentCount = base._count.comments;
+      const { likes, _count, ...rest } = base;
+      return {
+        ...rest,
+        likeCount,
+        commentCount,
+        likedByMe,
+      };
+    });
+
     return {
-      items: items.map(withFallbackImages),
+      items: mapped,
       nextCursor,
     };
   }),
@@ -93,7 +135,7 @@ export const postsRouter = router({
 
       const posts = await ctx.prisma.post.findMany({
         where: { authorId: input.userId },
-        take: limit + (cursor ? 1 : 0),
+        take: limit + 1,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: {
@@ -141,6 +183,105 @@ export const postsRouter = router({
       });
 
       return post;
+    }),
+
+  toggleLike: whitelistedProcedure
+    .input(
+      z.object({
+        postId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const existing = await ctx.prisma.postLike.findUnique({
+        where: {
+          postId_userId: {
+            postId: input.postId,
+            userId,
+          },
+        },
+      });
+
+      if (existing) {
+        await ctx.prisma.postLike.delete({
+          where: { id: existing.id },
+        });
+      } else {
+        await ctx.prisma.postLike.create({
+          data: {
+            postId: input.postId,
+            userId,
+          },
+        });
+      }
+
+      const likeCount = await ctx.prisma.postLike.count({
+        where: { postId: input.postId },
+      });
+
+      return {
+        liked: !existing,
+        likeCount,
+      };
+    }),
+
+  addComment: whitelistedProcedure
+    .input(
+      z.object({
+        postId: z.string(),
+        content: z.string().min(1).max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+
+      const comment = await ctx.prisma.postComment.create({
+        data: {
+          postId: input.postId,
+          authorId: userId,
+          content: input.content.trim(),
+        },
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      return comment;
+    }),
+
+  getComments: whitelistedProcedure
+    .input(
+      z.object({
+        postId: z.string(),
+        limit: z.number().min(1).max(50).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 20;
+
+      const comments = await ctx.prisma.postComment.findMany({
+        where: { postId: input.postId },
+        orderBy: { createdAt: "asc" },
+        take: limit,
+        include: {
+          author: {
+            select: {
+              id: true,
+              name: true,
+              image: true,
+            },
+          },
+        },
+      });
+
+      return comments;
     }),
 
   delete: adminProcedure

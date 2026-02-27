@@ -17,6 +17,8 @@ model User {
   sentChatMessages     ChatMessage[]    @relation("ChatMessageSender")
   receivedChatMessages ChatMessage[]    @relation("ChatMessageReceiver")
   posts           Post[]
+  postLikes       PostLike[]
+  postComments    PostComment[]
 
   @@unique([email])
   @@map("user")
@@ -105,10 +107,39 @@ model Post {
   imageUrls String[] @default([])
   caption   String?
   createdAt DateTime @default(now())
+  likes     PostLike[]
+  comments  PostComment[]
 
   @@index([createdAt])
   @@index([authorId])
   @@map("post")
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("post_like")
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@index([authorId])
+  @@map("post_comment")
 }
 
 // Keeping ChatMessage as it can be a UI component
