@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { protectedProcedure, publicProcedure, router, whitelistedProcedure, adminProcedure } from "../index";
 
-const ROLES = ["ADMIN", "USER"] as const;
+const ROLES = ["BASIC", "AUTHOR", "ADMIN"] as const;
 
 export const teamRouter = router({
   // Get current user's role

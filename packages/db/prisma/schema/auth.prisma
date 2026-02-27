@@ -11,6 +11,7 @@ model User {
   activityLogs    ActivityLog[]
   sentChatMessages     ChatMessage[]    @relation("ChatMessageSender")
   receivedChatMessages ChatMessage[]    @relation("ChatMessageReceiver")
+  posts           Post[]
 
   @@unique([email])
   @@map("user")
@@ -19,7 +20,7 @@ model User {
 model AuthorizedUser {
   id        String   @id @default(cuid())
   email     String   @unique
-  role      String   // Generic role (e.g., ADMIN, USER)
+  role      String   // Permission level (e.g., BASIC, AUTHOR, ADMIN)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -79,7 +80,7 @@ model ActivityLog {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   action      String   // e.g., "created", "updated", "deleted"
-  entityType  String   
+  entityType  String
   entityId    String?
   description String   
   metadata    String?  @db.Text 
@@ -89,6 +90,19 @@ model ActivityLog {
   @@index([createdAt])
   @@index([entityType])
   @@map("activity_log")
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  imageUrl  String
+  caption   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([authorId])
+  @@map("post")
 }
 
 // Keeping ChatMessage as it can be a UI component

@@ -39,8 +39,9 @@ export const Route = createFileRoute("/team")({
 });
 
 const ROLES = [
+  { value: "BASIC", label: "Basic (view only)" },
+  { value: "AUTHOR", label: "Author (can post)" },
   { value: "ADMIN", label: "Administrator" },
-  { value: "USER", label: "User" },
 ];
 
 function TeamRoute() {
@@ -118,10 +119,10 @@ function TeamRoute() {
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-4 px-3 py-4 sm:gap-6 sm:px-4 sm:py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-primary">Management</p>
-          <h1 className="text-3xl font-bold tracking-tight">Team & Permissions</h1>
+          <p className="text-xs font-medium uppercase tracking-widest text-primary">Admin</p>
+          <h1 className="text-3xl font-bold tracking-tight">Vigil access & roles</h1>
           <p className="text-muted-foreground">
-            Manage authorized users and their roles.
+            Manage who can view Vigil, who can post, and who can administer the app.
           </p>
         </div>
         {isAdmin && (

@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { Menu, X, Layout } from "lucide-react";
+import { Menu, X, Eye } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 import {
@@ -55,8 +55,8 @@ export default function Header() {
               to="/"
               className="flex shrink-0 items-center gap-2 font-semibold tracking-tight text-foreground transition-opacity hover:opacity-80"
             >
-              <Layout className="h-8 w-8 text-primary" />
-              <span className="hidden sm:inline">TEMPLATE</span>
+              <Eye className="h-8 w-8 text-primary" />
+              <span className="hidden sm:inline">Vigil</span>
             </Link>
 
             {/* Desktop nav: hidden on mobile */}

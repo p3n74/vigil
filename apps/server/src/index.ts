@@ -25,6 +25,7 @@ console.log("Environment:", {
 // Start server immediately with minimal setup for Cloud Run health checks
 import { createServer } from "node:http";
 import express from "express";
+import multer from "multer";
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,7 +66,7 @@ const __dirname = path.dirname(__filename);
 // Now dynamically import and initialize the rest of the application
 // Using dynamic imports ensures the server is already listening before
 // heavy modules (Prisma, auth, routers, etc.) are loaded
-console.log("Initializing application modules (async)...");
+  console.log("Initializing application modules (async)...");
 
 (async () => {
   try {
@@ -93,6 +94,23 @@ console.log("Initializing application modules (async)...");
 
     const cors = corsModule.default;
 
+    const uploadsDir = path.resolve(__dirname, "../uploads");
+    const upload = multer({
+      storage: multer.diskStorage({
+        destination: (_req, _file, cb) => {
+          cb(null, uploadsDir);
+        },
+        filename: (_req, file, cb) => {
+          const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+          const ext = path.extname(file.originalname) || "";
+          cb(null, `${uniqueSuffix}${ext}`);
+        },
+      }),
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    });
+
     // Initialize WebSocket server
     initWebSocket(httpServer, env.CORS_ORIGIN);
 
@@ -114,6 +132,17 @@ console.log("Initializing application modules (async)...");
 
     app.all("/api/auth", toNodeHandler(auth));
     app.all("/api/auth/*path", toNodeHandler(auth));
+
+    app.use("/uploads", express.static(uploadsDir));
+
+    app.post("/upload", upload.single("file"), (req, res) => {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const imageUrl = `/uploads/${req.file.filename}`;
+      return res.status(200).json({ imageUrl });
+    });
 
     app.use(
       "/trpc",

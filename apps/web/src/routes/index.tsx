@@ -4,10 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
-  Shield,
-  Zap,
-  Github,
-  CheckCircle2,
+  Eye,
+  Camera,
+  BookOpen,
+  ImageIcon,
   Users,
   Loader2,
 } from "lucide-react";
@@ -73,7 +73,7 @@ function SignedInHome({ error }: { error?: string }) {
   return (
     <div className="mx-auto max-w-6xl min-w-0 px-3 py-6 sm:px-4 sm:py-8 text-center">
       <div className="mb-8">
-        <p className="text-xs font-medium uppercase tracking-widest text-primary">Overview</p>
+        <p className="text-xs font-medium uppercase tracking-widest text-primary">Vigil</p>
         <h1 className="text-4xl font-bold tracking-tight mb-2">
           Welcome back, {session?.user.name?.split(" ")[0] ?? "User"}
         </h1>
@@ -115,90 +115,6 @@ function SignedInHome({ error }: { error?: string }) {
 }
 
 function SignedOutHome() {
-  return (
-    <div className="flex flex-col min-h-[calc(100vh-80px)]">
-      {/* Hero Section */}
-      <section className="flex-1 flex flex-col items-center justify-center px-4 py-12 sm:py-24 text-center">
-        <div className="max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-6 animate-fade-in">
-            <Zap className="w-3 h-3 fill-current" />
-            <span>Modern UI/UX Template</span>
-          </div>
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
-            The ultimate foundation for your <span className="text-primary">SaaS project</span>
-          </h1>
-          <p className="text-lg sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            A production-ready monorepo template featuring React, tRPC, Prisma, and Better-Auth. 
-            Focus on your features, not the boilerplate.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button size="lg" asChild className="px-8 h-12 text-base font-semibold">
-              <a href="#login">Get Started</a>
-            </Button>
-            <Button size="lg" variant="outline" asChild className="px-8 h-12 text-base font-semibold gap-2">
-              <a href="https://github.com">
-                <Github className="w-5 h-5" />
-                View Source
-              </a>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="py-20 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">Everything you need included</h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              We've pre-configured the best tools in the ecosystem so you can build with confidence.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <FeatureCard 
-              icon={<Shield className="w-6 h-6 text-primary" />}
-              title="Secure Auth"
-              description="Full authentication suite with Better-Auth. Supports Google, GitHub, and more out of the box."
-            />
-            <FeatureCard 
-              icon={<Zap className="w-6 h-6 text-primary" />}
-              title="End-to-End Type Safety"
-              description="Built with tRPC for a seamless developer experience and zero-runtime overhead type checking."
-            />
-            <FeatureCard 
-              icon={<CheckCircle2 className="w-6 h-6 text-primary" />}
-              title="Clean UI/UX"
-              description="Beautifully designed components using shadcn/ui, Tailwind CSS, and TanStack Router."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Login Section */}
-      <section id="login" className="py-20 flex items-center justify-center bg-background">
-        <div className="w-full max-w-md px-4">
-          <LoginCard />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
-  return (
-    <Card className="bg-background border-none shadow-none text-center">
-      <CardHeader>
-        <div className="mx-auto mb-4 bg-primary/10 w-12 h-12 rounded-lg flex items-center justify-center">
-          {icon}
-        </div>
-        <CardTitle className="text-xl mb-2">{title}</CardTitle>
-        <CardDescription className="text-base">{description}</CardDescription>
-      </CardHeader>
-    </Card>
-  );
-}
-
-function LoginCard() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
@@ -217,26 +133,69 @@ function LoginCard() {
   };
 
   return (
-    <Card className="border-primary/20 shadow-xl">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
-        <CardDescription>
-          Access your account via Google
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Button
-          type="button"
-          className="w-full h-12 text-base"
-          onClick={handleGoogleSignIn}
-          disabled={isGoogleLoading}
-        >
-          {isGoogleLoading ? "Connecting..." : "Continue with Google"}
-        </Button>
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          By signing in, you agree to our Terms of Service and Privacy Policy.
-        </p>
-      </CardContent>
-    </Card>
+    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4">
+      <Card className="glass border-border/50 shadow-2xl w-full max-w-3xl overflow-hidden">
+        <div className="grid md:grid-cols-2">
+          {/* Left side - Sign in */}
+          <div className="flex flex-col justify-center p-8 sm:p-10">
+            <div className="flex items-center gap-2.5 mb-6">
+              <Eye className="size-7 text-primary" />
+              <h1 className="text-2xl font-bold tracking-tight">Vigil</h1>
+            </div>
+            <p className="text-sm text-muted-foreground mb-8">
+              Sign in to access your private feed.
+            </p>
+            <Button
+              type="button"
+              className="w-full h-12 text-base"
+              onClick={handleGoogleSignIn}
+              disabled={isGoogleLoading}
+            >
+              {isGoogleLoading ? "Connecting..." : "Sign in with Google"}
+            </Button>
+          </div>
+
+          {/* Right side - App description */}
+          <div className="hidden md:flex flex-col justify-center gap-6 border-l border-border/50 bg-muted/20 p-8 sm:p-10">
+            <div>
+              <h2 className="text-lg font-semibold mb-1">Your private photo journal</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                A whitelisted space for you and the people you trust to share 
+                pictures, stories, and everyday moments.
+              </p>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Camera className="size-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Share photos</p>
+                  <p className="text-xs text-muted-foreground">Post pictures with captions to your feed.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <BookOpen className="size-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Tell your stories</p>
+                  <p className="text-xs text-muted-foreground">Add context to your moments with short write-ups.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <ImageIcon className="size-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Invitation only</p>
+                  <p className="text-xs text-muted-foreground">Only whitelisted members can view and post.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 }
